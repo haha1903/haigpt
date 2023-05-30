@@ -1,6 +1,7 @@
-import { cookies } from 'next/headers';
+import { kv } from '@vercel/kv';
+import { NextResponse } from 'next/server';
  
-export async function GET(request: Request) {
- 
-  return new Response('Hello, Next.js2!');
+export async function GET() {
+  const user = await kv.hgetall('user:1');
+  return NextResponse.json(user);
 }
