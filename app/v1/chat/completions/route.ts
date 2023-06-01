@@ -1,10 +1,4 @@
-import { kv } from '@vercel/kv';
 import { NextRequest, NextResponse } from 'next/server';
-
-export async function GET() {
-  const user = await kv.hgetall('user:2');
-  return NextResponse.json(user);
-}
 
 export async function POST(request: NextRequest) {
   const DEFAULT_API_VERSION = '2023-03-15-preview'
@@ -42,10 +36,19 @@ export async function POST(request: NextRequest) {
         const reader = response.body!.getReader();
         while (true) {
           const { value, done } = await reader.read();
-          if (done) controller.close();
+          if (done) {
+            console.log('close controller')
+            controller.close();
+          }
           console.log('Received', decoder.decode(value));
           controller.enqueue(value);
         }
+      }
+    },
+    {
+      highWaterMark: 1,
+      size(chunk) {
+        return chunk.length;
       },
     }
   );
