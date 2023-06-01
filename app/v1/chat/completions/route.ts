@@ -47,12 +47,6 @@ export async function POST(request: NextRequest) {
           controller.enqueue(value);
         }
       },
-    },
-    {
-      highWaterMark: 1,
-      size(chunk) {
-        return chunk.length;
-      },
     }
   );
 
