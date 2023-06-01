@@ -6,38 +6,25 @@ export async function GET() {
   return NextResponse.json(user);
 }
 
-const DEFAULT_API_VERSION = '2023-03-15-preview'
-
-const getDeploymentId = (mapping: string, model: string): string => {
-  if (mapping.includes('|')) {
-    let defaultDeploymentId = ''
-    const modelMapping = mapping.split(',').reduce((acc: Record<string, string>, pair: string) => {
-      const [key, value] = pair.split('|')
-      if (!defaultDeploymentId) {
-        defaultDeploymentId = value
-      }
-      acc[key] = value
-      return acc
-    }, {})
-
-    if (!model) {
-      return defaultDeploymentId
-    }
-
-    return modelMapping[model] || defaultDeploymentId
-  }
-
-  return mapping
-}
-
 export async function POST(request: NextRequest) {
+  const DEFAULT_API_VERSION = '2023-03-15-preview'
   const apiKey = request.headers.get('authorization')?.replace('Bearer ', '')
   if (!apiKey) {
     return NextResponse.json({ message: 'Unauthenticated' }, { status: 401 })
   }
   const body = await request.json();
   const [resourceId, mapping, azureApiKey, apiVersion] = apiKey.split(':')
-  const deploymentId = getDeploymentId(mapping, body['model']);
+  const model = body['model'];
+
+  // get deployment id
+  var deploymentId;
+  if (mapping.includes('|')) {
+    const modelMapping = Object.fromEntries(mapping.split(',').map(pair => pair.split('|')));
+    deploymentId = modelMapping[model] || Object.values(modelMapping)[0];
+  } else {
+    deploymentId = mapping;
+  }
+
   let url = `https://${resourceId}.openai.azure.com/openai/deployments/${deploymentId}/chat/completions?api-version=${apiVersion || DEFAULT_API_VERSION}`;
   const response = await fetch(url, {
     method: 'POST',
