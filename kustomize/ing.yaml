@@ -8,7 +8,7 @@ metadata:
   name: ingress-haigpt
 spec:
   rules:
-    - host: $(DOMAIN)
+    - host: haigpt.shop
       http:
         paths:
           - path: /
@@ -20,5 +20,5 @@ spec:
                   number: 80
   tls:
     - hosts:
-        - $(DOMAIN)
+        - haigpt.shop
       secretName: ssl-haigpt
