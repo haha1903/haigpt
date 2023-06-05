@@ -38,12 +38,12 @@ on:
     branches: ["main"]
   workflow_dispatch:
 
-env:
-  AZURE_CONTAINER_REGISTRY: "your-azure-container-registry"
-  CONTAINER_NAME: "your-container-name"
-  RESOURCE_GROUP: "your-resource-group"
-  CLUSTER_NAME: "your-cluster-name"
-  KUSTOMIZE_PATH: "your-kustomize-path"
+# env:
+#   AZURE_CONTAINER_REGISTRY: "your-azure-container-registry"
+#   CONTAINER_NAME: "your-container-name"
+#   RESOURCE_GROUP: "your-resource-group"
+#   CLUSTER_NAME: "your-cluster-name"
+#   KUSTOMIZE_PATH: "your-kustomize-path"
 
 jobs:
   buildImage:
