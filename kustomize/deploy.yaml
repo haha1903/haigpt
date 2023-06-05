@@ -14,4 +14,4 @@ spec:
     spec:
       containers:
         - name: haigpt
-          image: betint.azurecr.io/haigpt:latest
+          image: haigpt.azurecr.io/haigpt:latest
