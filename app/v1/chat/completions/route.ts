@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 
 export async function POST(request: NextRequest) {
-  const DEFAULT_API_VERSION = '2023-03-15-preview'
+  const DEFAULT_API_VERSION = '2023-05-15'
   const apiKey = request.headers.get('authorization')?.replace('Bearer ', '')
   if (!apiKey) {
     return NextResponse.json({ message: 'Unauthenticated' }, { status: 401 })
@@ -37,10 +37,10 @@ export async function POST(request: NextRequest) {
         while (true) {
           const { value, done } = await reader.read();
           if (done) {
-            console.log('close controller')
+            // console.log('close controller')
             controller.close();
           }
-          console.log('Received', decoder.decode(value));
+          // console.log('Received', decoder.decode(value));
           controller.enqueue(value);
         }
       }
