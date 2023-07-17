@@ -16,6 +16,7 @@ export async function POST(request: NextRequest) {
     let response = await chat(apiKey, body);
     const status = response.status;
     if (status < 300 || status === 400) {
+      console.log(`Status is ${status}, return response`);
       return response;
     }
     if (retryCount >= MAX_RETRY_COUNT) {
@@ -51,36 +52,63 @@ async function chat(apiKey: string, body: any) {
     body: JSON.stringify(body)
   });
 
-  const decoder = new TextDecoder();
-  const resultStream = new ReadableStream(
-    {
-      async pull(controller) {
-        const reader = response.body!.getReader();
-        while (true) {
-          const {value, done} = await reader.read();
-          if (done) {
-            console.log('close controller')
-            controller.close();
+  let resultStream: ReadableStream | undefined;
+  let isFirstPackage = true;
+  const status: number = await new Promise(resolve => {
+        const decoder = new TextDecoder();
+        resultStream = new ReadableStream(
+          {
+            async pull(controller) {
+              const reader = response.body!.getReader();
+
+              while (true) {
+                const {value, done} = await reader.read();
+                if (done) {
+                  console.log('close controller')
+                  controller.close();
+                }
+                let data = decoder.decode(value);
+                if (isFirstPackage) {
+                  isFirstPackage = false;
+                  if (handleFirstPackage(data)) {
+                    resolve(response.status);
+                  } else {
+                    resolve(500);
+                  }
+                }
+                console.log('Received', data);
+                controller.enqueue(value);
+              }
+            }
+          },
+          {
+            highWaterMark: 1,
+            size(chunk) {
+              return chunk.length;
+            },
           }
-          console.log('Received', decoder.decode(value));
-          controller.enqueue(value);
-        }
+        );
       }
-    },
-    {
-      highWaterMark: 1,
-      size(chunk) {
-        return chunk.length;
-      },
-    }
-  );
+    )
+  ;
 
   return new Response(resultStream, {
-    status: response.status,
+    status: status,
     headers: response.headers,
   });
 }
 
 function delay(ms: number) {
   return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+function handleFirstPackage(data: string) {
+  try {
+    let json = data.match(/^data: (.*?)\n$/m)?.[1];
+    const firstPackage = JSON.parse(json!!);
+    return !firstPackage.error;
+  } catch (e) {
+    console.log(`parse json error: ${e}`);
+    return true;
+  }
 }
