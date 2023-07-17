@@ -28,7 +28,7 @@ export async function POST(request: NextRequest) {
   }
 }
 
-export async function chat(apiKey: string, body: any) {
+async function chat(apiKey: string, body: any) {
   const [resourceId, mapping, azureApiKey, apiVersion] = apiKey.split(':')
   const model = body['model'];
 
