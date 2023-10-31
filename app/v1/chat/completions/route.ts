@@ -28,9 +28,14 @@ export async function POST(request: NextRequest) {
   while (true) {
     let response = await chat(apiKey, body);
     const status = response.status;
-    if (status < 300 || status === 400) {
+    if (status < 300) {
       console.log(`Status is ${status}, return response`);
       return response;
+    }
+    if(status === 400) {
+      retryCount++;
+      console.log(`Status is ${status}, use secondary api key`);
+      apiKey = config.secondaryApiKey;
     }
     if (retryCount >= MAX_RETRY_COUNT) {
       return response;
