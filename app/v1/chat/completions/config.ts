@@ -54,7 +54,6 @@ export function parseApiKey(apiKeyStr: string) {
 }
 
 function getConfig(): Config {
-  console.log(`get config`);
   const primaryApiKeyEnv = process.env.PrimaryApiKey;
   const secondaryApiKeyEnv = process.env.SecondaryApiKey;
   const userTokensEnv = process.env.UserTokens;
@@ -72,8 +71,37 @@ function getConfig(): Config {
 
     return new Config(primaryApiKey, secondaryApiKey, userTokens);
   } else {
-    const configJson = fs.readFileSync('config.json', 'utf-8');
-    const data = JSON.parse(configJson);
+    let data;
+    try {
+      const configJson = fs.readFileSync('config.json', 'utf-8');
+      data = JSON.parse(configJson);
+    } catch (e) {
+      // mock config data for docker build
+      data = {
+        primaryApiKey: {
+          resourceId: "",
+          deployment: {
+            "gpt-4": "gpt-4",
+          },
+          apiKey: "",
+          apiVersion: "2023-05-15"
+        },
+        secondaryApiKey: {
+          resourceId: "",
+          deployment: {
+            "gpt-4": "gpt-4",
+          },
+          apiKey: "",
+          apiVersion: "2023-05-15"
+        },
+        userTokens: [
+          {
+            userId: "dummy",
+            token: "sk-1234567890"
+          }
+        ]
+      };
+    }
 
     const primaryApiKey = new ApiKey(data.primaryApiKey.resourceId, data.primaryApiKey.deployment, data.primaryApiKey.apiKey, data.primaryApiKey.apiVersion);
     const secondaryApiKey = new ApiKey(data.secondaryApiKey.resourceId, data.secondaryApiKey.deployment, data.secondaryApiKey.apiKey, data.secondaryApiKey.apiVersion);
