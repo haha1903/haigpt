@@ -1,13 +1,26 @@
 import {NextRequest, NextResponse} from 'next/server';
+import {ApiKey, parseApiKey} from "@/app/v1/chat/completions/config";
+import config from "@/app/v1/chat/completions/config";
 
 const DEFAULT_API_VERSION = '2023-05-15'
 const MAX_RETRY_COUNT = 3;
 const RETRY_DELAY = 1000;
 
 export async function POST(request: NextRequest) {
-  const apiKey = request.headers.get('authorization')?.replace('Bearer ', '')
-  if (!apiKey) {
-    return NextResponse.json({message: 'Unauthenticated'}, {status: 401})
+  let apiKey: ApiKey;
+  const apiKeyStr = request.headers.get('authorization')?.replace('Bearer ', '')
+  let unAuth = NextResponse.json({message: 'Unauthenticated'}, {status: 401});
+  if (!apiKeyStr) {
+    return unAuth;
+  }
+  try {
+    apiKey = parseApiKey(apiKeyStr);
+  } catch (e) {
+    if (config.userTokens.some(userToken => userToken.token === apiKeyStr)) {
+      apiKey = config.primaryApiKey;
+    } else {
+      return unAuth;
+    }
   }
   const body = await request.json();
 
@@ -29,24 +42,17 @@ export async function POST(request: NextRequest) {
   }
 }
 
-async function chat(apiKey: string, body: any) {
-  const [resourceId, mapping, azureApiKey, apiVersion] = apiKey.split(':')
+async function chat(apiKey: ApiKey, body: any) {
   const model = body['model'];
 
   // get deployment id
-  let deploymentId;
-  if (mapping.includes('|')) {
-    const modelMapping = Object.fromEntries(mapping.split(',').map(pair => pair.split('|')));
-    deploymentId = modelMapping[model] || Object.values(modelMapping)[0];
-  } else {
-    deploymentId = mapping;
-  }
+  const deploymentId = apiKey.deployment[model] || Object.values(apiKey.deployment)[0];
 
-  let url = `https://${resourceId}.openai.azure.com/openai/deployments/${deploymentId}/chat/completions?api-version=${apiVersion || DEFAULT_API_VERSION}`;
+  let url = `https://${apiKey.resourceId}.openai.azure.com/openai/deployments/${deploymentId}/chat/completions?api-version=${apiKey.apiVersion || DEFAULT_API_VERSION}`;
   const response = await fetch(url, {
     method: 'POST',
     headers: {
-      'api-key': azureApiKey,
+      'api-key': apiKey.apiKey,
       'Content-Type': 'application/json',
     },
     body: JSON.stringify(body)
