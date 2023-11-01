@@ -28,11 +28,15 @@ export async function POST(request: NextRequest) {
   while (true) {
     let response = await chat(apiKey, body);
     const status = response.status;
+    // const json = await response.json();
+    /*if(json?.choices[0]?.finish_reason === 'content_filter') {
+      console.log(`Status is ${status}, retry`);
+    }*/
     if (status < 300) {
       console.log(`Status is ${status}, return response`);
       return response;
     }
-    if(status === 400) {
+    if (status === 400) {
       retryCount++;
       console.log(`Status is ${status}, use secondary api key`);
       apiKey = config.secondaryApiKey;
@@ -81,11 +85,8 @@ async function chat(apiKey: ApiKey, body: any) {
                 let data = decoder.decode(value);
                 if (isFirstPackage) {
                   isFirstPackage = false;
-                  if (handleFirstPackage(data)) {
-                    resolve(response.status);
-                  } else {
-                    resolve(500);
-                  }
+                  let status = handleFirstPackage(data);
+                  resolve(status || response.status);
                 }
                 console.log('Received', data);
                 controller.enqueue(value);
@@ -113,13 +114,24 @@ function delay(ms: number) {
   return new Promise(resolve => setTimeout(resolve, ms));
 }
 
+function getContent(data: string) {
+  let match = data.match(/^data: (.*?)\n$\ndata:(.*?)\n$/m);
+  return [match?.[1], match?.[2]];
+}
+
 function handleFirstPackage(data: string) {
   try {
-    let json = data.match(/^data: (.*?)\n$/m)?.[1];
-    const firstPackage = JSON.parse(json!!);
-    return !firstPackage.error;
+    const [firstJson, secondJson] = getContent(data);
+    const firstPackage = JSON.parse(firstJson!!);
+    const secondPackage = JSON.parse(secondJson!!);
+    if(firstPackage.error) {
+      return 500;
+    }
+    if(secondPackage.choices[0].finish_reason === 'content_filter') {
+      return 400;
+    }
   } catch (e) {
     console.log(`parse json error: ${e}`);
-    return true;
+    return 0;
   }
 }
