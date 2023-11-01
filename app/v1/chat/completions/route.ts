@@ -121,13 +121,21 @@ function getContent(data: string) {
 
 function handleFirstPackage(data: string) {
   try {
+    const json = JSON.parse(data);
+    if (json.choices[0].finish_reason === 'content_filter') {
+      return 400;
+    }
+  } catch (e) {
+    // ignore
+  }
+  try {
     const [firstJson, secondJson] = getContent(data);
     const firstPackage = JSON.parse(firstJson!!);
     const secondPackage = JSON.parse(secondJson!!);
-    if(firstPackage.error) {
+    if (firstPackage.error) {
       return 500;
     }
-    if(secondPackage.choices[0].finish_reason === 'content_filter') {
+    if (secondPackage.choices[0].finish_reason === 'content_filter') {
       return 400;
     }
   } catch (e) {
