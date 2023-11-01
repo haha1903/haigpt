@@ -1,6 +1,71 @@
-This is a [Next.js](https://nextjs.org/) project bootstrapped with [`create-next-app`](https://github.com/vercel/next.js/tree/canary/packages/create-next-app).
+# Haigpt
 
-## Getting Started
+Haigpt is a proxy software that wraps the Azure ChatGPT service into the OpenAI ChatGPT API. Users can call the Azure ChatGPT service through the OpenAI ChatGPT API.
+
+In addition, haigpt has the following features:
+
+1. **Retry Mechanism**: haigpt has added a retry mechanism. If the Azure ChatGPT service returns a 429 Too Many Requests or other 500 errors, haigpt will automatically retry multiple times until it succeeds or reaches the maximum number of retries.
+
+2. **Support for Two Azure ChatGPT Services**: haigpt supports two Azure ChatGPT services, primary and secondary. The primary service is used by default. When the primary service is intercepted by the content filter, it will automatically switch to the secondary service.
+
+3. **Support for Custom User Tokens**: haigpt supports defining your own user tokens for access control.
+
+## Usage
+
+There are three ways to use haigpt:
+
+1. **Pure Proxy**: The service itself has no configuration and simply forwards the OpenAI ChatGPT API to the Azure ChatGPT service. The API key needs to be provided by the client. Add a request header in the request: Authentication. The format is `Bearer AZURE_RESOURCE_ID:OPENAI_MODEL_NAME1|AZURE_MODEL_DEPLOYMENT1,OPENAI_MODEL_NAME2|AZURE_MODEL_DEPLOYMENT2:AZURE_API_KEY:API_VERSION`. API_VERSION is an optional parameter, the default is 2023-05-15.
+
+   Sample:
+   ```
+   Authentication: Bearer gpt1:gpt-3.5-turbo|gpt-35-turbo,gpt-4|gpt-4,gpt-4-32k|gpt-4-32k:4f29ec7c704d453fbb15e82a6700beef
+   ```
+
+2. **Configuration with config.json**: Use config.json to configure the proxy service. The format of the configuration file is as follows:
+
+   ```json
+   {
+     "primaryApiKey": {
+       "resourceId": "gpt1",
+       "deployment": {
+         "gpt-3.5-turbo": "gpt-35-turbo",
+         "gpt-4": "gpt-4",
+         "gpt-4-32k": "gpt-4-32k"
+       },
+       "apiKey": "4f29ec7c704d453fbb15e82a6700beef",
+       "apiVersion": "2023-05-15"
+     },
+     "secondaryApiKey": {
+       "resourceId": "gpt2",
+       "deployment": {
+         "gpt-3.5-turbo": "gpt-35-turbo",
+         "gpt-4": "gpt-4",
+         "gpt-4-32k": "gpt-4-32k"
+       },
+       "apiKey": "2c7f38da89274c96b85b345632a01fde",
+       "apiVersion": "2023-05-15"
+     },
+     "userTokens": [
+       {
+         "userId": "user1",
+         "token": "sk-87vbtyWRh5tHEwRrZPd3z6U2CmGKQ1JnXbZtVgYpBmHZP9JKH"
+       },
+       {
+         "userId": "user2",
+         "token": "sk-lktyzjVEt9cXDsOPe3q5Y2RsMnGKJ9ZpYbLtWhZnCdZYJ2KLH"
+       }
+     ]
+   }
+   ```
+
+3. **Configuration with Environment Variables**:
+
+   ```
+   PrimaryApiKey=gpt1:gpt-3.5-turbo|gpt-35-turbo,gpt-4|gpt-4,gpt-4-32k|gpt-4-32k:4f29ec7c704d453fbb15e82a6700beef:2023-05-15
+   SecondaryApiKey=gpt2:gpt-3.5-turbo|gpt-35-turbo,gpt-4|gpt-4,gpt-4-32k|gpt-4-32k:2c7f38da89274c96b85b345632a01fde
+   UserTokens=user1|sk-87vbtyWRh5tHEwRrZPd3z6U2CmGKQ1JnXbZtVgYpBmHZP9JKH,user2|sk-lktyzjVEt9cXDsOPe3q5Y2RsMnGKJ9ZpYbLtWhZnCdZYJ2KLH
+   ```
+## Running the Application
 
 First, run the development server:
 
@@ -12,23 +77,12 @@ yarn dev
 pnpm dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Contributing
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+Pull requests are welcome. For major changes, please open an issue first to discuss what you would like to change.
 
-This project uses [`next/font`](https://nextjs.org/docs/basic-features/font-optimization) to automatically optimize and load Inter, a custom Google Font.
+Please make sure to update tests as appropriate.
 
-## Learn More
+## License
 
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js/) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/deployment) for more details.
+[MIT](https://choosealicense.com/licenses/mit/)
