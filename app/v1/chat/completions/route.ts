@@ -2,8 +2,6 @@ import { NextRequest, NextResponse } from 'next/server'
 import config, { ApiKey, parseApiKey } from '@/app/v1/chat/completions/config'
 
 const DEFAULT_API_VERSION = '2023-05-15'
-const MAX_RETRY_COUNT = 3
-const RETRY_DELAY = 1000
 
 export async function POST(request: NextRequest) {
   let apiKey: ApiKey
@@ -23,7 +21,6 @@ export async function POST(request: NextRequest) {
   }
   const body = await request.json()
 
-  let retryCount = 0
   while (true) {
     let response = await chat(apiKey, body)
     const status = response.status
@@ -32,17 +29,10 @@ export async function POST(request: NextRequest) {
       return response
     }
     if (status === 400) {
-      retryCount++
       console.log(`Status is ${status}, use secondary api key`)
-      apiKey = config.secondaryApiKey
+      return await chat(config.secondaryApiKey, body)
     }
-    if (retryCount >= MAX_RETRY_COUNT) {
-      return response
-    } else {
-      retryCount++
-      console.log(`Status is ${status}, Retry ${retryCount} times`)
-      await delay(RETRY_DELAY)
-    }
+    return response
   }
 }
 
@@ -62,50 +52,53 @@ async function chat(apiKey: ApiKey, body: any) {
     body: JSON.stringify(body),
   })
 
-  let status = 200
   const decoder = new TextDecoder()
   const encoder = new TextEncoder()
-  let resultStream = new ReadableStream(
-    {
-      async pull(controller) {
-        const reader = response.body!.getReader()
-
-        while (true) {
-          const { value, done } = await reader.read()
-          if (done) {
-            console.log('close controller')
-            controller.close()
-            break
-          }
-          let data = decoder.decode(value)
-          console.log('Received', data)
+  let resultStream
+  const status: number = await new Promise(resolve => {
+    resultStream = new ReadableStream(
+      {
+        async pull(controller) {
           try {
-            let ret = handlePackage(data)
-            if (ret) {
-              controller.enqueue(encoder.encode(ret))
+            const reader = response.body!.getReader()
+
+            while (true) {
+              const { value, done } = await reader.read()
+              if (done) {
+                console.log('close controller')
+                controller.close()
+                break
+              }
+              let data = decoder.decode(value)
+              console.log('Received', data)
+              try {
+                let ret = handlePackage(data)
+                if (ret) {
+                  resolve(response.status)
+                  controller.enqueue(encoder.encode(ret))
+                }
+              } catch (e: any) {
+                resolve(e.code)
+                controller.enqueue(encoder.encode(e.message))
+              }
             }
           } catch (e) {
-            console.log(`handle package error: ${e}`)
-            if (typeof (e) === 'number') {
-              status = e
-            } else {
-              status = 500
-            }
+            console.log(`pull error`)
           }
-        }
+        },
       },
-    },
-    {
-      highWaterMark: 1,
-      size(chunk) {
-        return chunk.length
+      {
+        highWaterMark: 1,
+        size(chunk) {
+          return chunk.length
+        },
       },
-    },
-  )
+    )
+  })
 
   return new Response(resultStream, {
     status: status,
-    headers: response.headers,
+    headers: getHeaders(response),
   })
 }
 
@@ -114,14 +107,20 @@ function delay(ms: number) {
 }
 
 function handlePackage(data: string) {
+  let json
   try {
-    const json = JSON.parse(data)
-    if (json.choices[0].finish_reason === 'content_filter') {
-      throw 400
-    }
-    return data
-  } catch {
+    json = JSON.parse(data)
+  } catch (e) {
     // ignore
+  }
+  if (json && json.error) {
+    throw json.error
+  }
+  if (json && json.choices[0].finish_reason === 'content_filter') {
+    throw {
+      code: 400,
+      message: `Content filter triggered, ${JSON.stringify(json.choices[0])}`,
+    }
   }
   const contents = data.split(/\s*data: /).map(content => content.trim()).filter(content => content !== '')
   const ret = contents.map(content => {
@@ -131,9 +130,6 @@ function handlePackage(data: string) {
     const json = JSON.parse(content)
     if (json.choices.length === 0) {
       return
-    }
-    if (json.choices[0].finish_reason === 'content_filter') {
-      throw 400
     }
     delete json['prompt_filter_results']
     for (let choice of json.choices) {
@@ -145,4 +141,11 @@ function handlePackage(data: string) {
     return
   }
   return `${ret.join('\n\n')}\n\n`
+}
+
+function getHeaders(response: Response) {
+  let headers = new Headers(response.headers)
+  headers.set('Content-Type', 'text/event-stream; charset=utf-8')
+  headers.delete('Content-Length')
+  return headers
 }
